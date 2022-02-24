@@ -1,0 +1,188 @@
+MEMORIA TP7
+(01). CONFIGURA TUS ADAPTADORES DE RED
+1. Selecciona tu maquina y... "Configuracion → Red → ..."
+        debian1
+        │  Adaptador 1 → NAT.
+        │  Adaptador 2 → Adaptador Solo-Anfitrion → "VirtualBox Host-Only Ethernet Adapter".
+        │  Adaptador 3 → Red Interna → "iNET.1"
+        │  Adaptador 4 → Red Interna → "iNET.2"
+        └
+        debian2
+        │  Adaptador 1 → Red Interna → "iNET.1"
+        └
+        debian3
+        │  Adaptador 1 → Red Interna → "iNET.2"
+        └
+        debian4 
+        │  Adaptador 1 → Red Interna → "iNET.2"
+        └
+        debian5 
+        │  Adaptador 1 → Red Interna → "iNET.3"
+        └
+        debian6 
+        │  Adaptador 1 → Red Interna → "iNET.2"
+        │  Adaptador 2 → Red Interna → "iNET.3"
+        └
+El orden en el que se añadan los adaptadores es irrelevante, simplemente recuerda que "Adaptador 1" en Debian será enp0s3,  "Adaptador 2" en Debian será 
+enp0s8, "Adaptador 3" en Debian será enp0s9 y "Adaptador 4" en Debian será enp0s10.
+
+La red solo-Anfitrion se crea en "Archivos → Administrador de red de Anfitrion". Por defecto ya existe una.
+
+Los adaptadores de Red interna pueden tener cualquier nombre, la unica condicion que deben cumplir es que si se quiere que dos o mas maquinas queden 
+conectadas por la misma red, que el adaptador de red interna en ambas maquinas tengan el mismo nombre.
+
+(02). CONFIGURAR EL NOMBRE DE CADA UNA DE LAS MAQUINAS
+~$ sudo nano /etc/hostname
+ │ Modificar as por debian (x de 1 a 6). No tiene porque ser el mismo nombre, ni se tiene el porque cambiarlo.
+ └
+~$ sudo nano /etc/hosts
+ │ Modificar en 127.0.1.1 as, as por debianX (x de 1 a 6). Al igual que antes, ni tiene porque ser el mismo nombre, ni tiene porque cambiarse.
+ └
+
+(03). DEFINICION DE LAS INTERFACES
+~$ sudo nano /etc/network/interfaces
+ │ Definimos al final del fichero las interfaces correspondientes a nuestros adaptadores.
+ │ 1. debian1:
+ │  │  # NAT. Dejar como esta por defecto.
+ │  │  # Host-Only network:
+ │  │  auto enp0s8
+ │  │  iface enp0s8 inet static
+ │  │      address 192.168.56.4
+ │  │      netmask 255.255.255.0
+ │  │  
+ │  │  # Red Interna 1
+ │  │  auto enp0s9
+ │  │  iface enp0s9 inet static
+ │  │  address 192.168.1.1
+ │  │  netmask 255.255.255.0
+ │  │  broadcast 192.168.1.255
+ │  │  network 192.168.1.0
+ │  │
+ │  │  # Red Interna 2
+ │  │  auto enp0s10
+ │  │  iface enp0s10 inet static
+ │  │     address 192.168.2.1
+ │  │     netmask 255.255.255.0
+ │  │     broadcast 192.168.2.255
+ │  │     network 192.168.2.0
+ │  └
+ │ 2. debian2: comenta o elimina la definicion de enp0s3 por defecto y sustituyela por lo de abajo.
+ │  │  # Red Interna 1
+ │  │  auto enp0s3
+ │  │  iface enp0s3 inet static
+ │  │      address 192.168.1.2
+ │  │      netmask 255.255.255.0
+ │  │      gateway 192.168.1.1
+ │  │      network 192.168.1.0
+ │  └
+ │ 3. debian3 y debian4: comenta o elimina la definicion de enp0s3 por defecto y sustituyela por lo de abajo.
+ │  │  # Red Interna 2
+ │  │  auto enp0s3
+ │  │  allow-hotplug enp0s3
+ │  │  iface enp0s3 inet dhcp
+ │  └
+ │ 4. debian5:
+ │  │  # Red Interna 3: comenta o elimina la definicion de enp0s3 por defecto y sustituyela por lo de abajo.
+ │  │  auto enp0s3
+ │  │  iface enp0s3 inet static
+ │  │       address 192.168.3.5
+ │  │       netmask 255.255.255.0
+ │  │       gateway 192.168.3.6
+ │  │       network 192.168.3.0
+ │  └
+ │ 5. debian6:
+ │  │  # Red Interna 2: comenta o elimina la definicion de enp0s3 por defecto y sustituyela por lo de abajo.
+ │  │  auto enp0s3
+ │  │  iface enp0s3 inet static
+ │  │       address 192.168.2.6
+ │  │       netmask 255.255.255.0
+ │  │       gateway 192.168.2.1
+ │  │       network 192.168.2.0
+ │  │
+ │  │  # Red Interna 3
+ │  │  auto enp0s8
+ │  │  iface enp0s8 inet static
+ │  │       address 192.168.3.6
+ │  │       netmask 255.255.255.0
+ │  │       network 192.168.3.0
+ │  └
+ └
+~$ sudo systemctl restart networking
+ │  Reiniciaras el servicio de red para aplicar los cambios.
+ └
+
+(04). CONFIGURACION DEDICADA DE LAS MAQUINAS
+1. debian1: servidor DHCP + router + firewall.
+    1.1. Servidor DHCP:
+        ~$ sudo apt-get update && sudo apt-get upgrade
+        ~$ sudo apt-get install isc-dhcp-server
+        ~$ sudo cp /etc/dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf.original
+         │  Copia por si las cosas van mal.
+         └
+        ~$ sudo nano /etc/dhcp/dhcpd.conf
+         │  Linea 49 (CTRL+C), descomentar el encabezado de subnet ..., las cinco primeras opciones y la llave de cierre, para finalmente cambiar los parametros:
+         │  subnet <red_basada> netmask 255.255.255.0 {                 subnet 192.168.2.0 netmask 255.255.255.0 {
+         │      range <ip_min> <ip_max>;                                    range 192.168.2.30 192.168.2.50
+         │      option domain-name-servers <domain_server>;     --\         option domain-name-servers ns1.internal.example.org;       
+         │      option domain-name "<domain_name>";                \        option domain-name "internal.example.org";
+         │      option router <ip>;                                /        option routers 192.168.2.1
+         │      option broadcast-adress <ip>                    --/         option broadcast-address 192.168.2.255
+         │  }                                                           }   
+         └
+        ~$ sudo nano /etc/default/isc-dhcp-server
+         │  Descomentar linea 4 = #DHCPDv4_CONF=/etc/dhcp/dhcpd.conf
+         │  Linea INTERFACESv4="" -> INTERFACESv4="enp0s10"
+         └
+
+    1.2. Enrutamiento estatico:
+        ~$ sudo nano /etc/sysctl.conf 
+         │  Para poder permitir en el enrutamiento se debe activar la reexpedicion de paquetes, esto se hace mediante la edicion del fichero /etc/sysctl.conf
+         │  Descomentamos #net.ipv4.ip_forward y ponemos su valor a 1. Si su valor ya era 1, muy bien, ya no tienes nada mas que hacer. Guarda (CTRL+S) y sal (CTRL+X).
+         └
+        ~$ sudo nano /etc/network/interfaces
+         │  La reexpedicion de paquetes seria suficiente pero nos necesitan en la red interna 3, por lo que hay que decirle a nuestra maquina como puede llegar ahi, y eso 
+         │  es posible en /etc/network/interfaces
+         │  En la interfaz correspondiente a la red interna 2, agregar como ultima linea:
+         │ 
+         │   auto enp0s10
+         │   iface enp0s10 inet static
+         │       ...
+         │       up route add -net 192.168.3.0 netmask 255.255.255.0 gw 192.168.3.6
+         │ 
+         │  En mi caso es enp0s10, pero podria ser cualquier otro dependiendo de en que adaptador se ha instalado.
+         └ 
+
+    1.3. Firewall:
+        ~$ sudo iptables-save > /etc/iptables/rules.v4.original
+         │  Sin haber cambiado ninguna regla ni haber tocado las iptables, guardaremos la configuracion por defecto, para poder restaurarla en caso de que
+         │  las cosas vayan mal.
+         └
+        ~$ sudo ./firewall.sh
+         │  Script con las reglas necesarias para definir el firewall descrito.
+         └
+        ~$ sudo apt-get install iptables-persistent
+         |  Instalamos las reglas del fichero /etc/iptables/rules.v4 para que no mueran una vez se rebootea el sistema.
+         └
+2. debian6: pasarela
+    2.1. Pasarela
+        ~$ sudo nano /etc/sysctl.conf
+         │  Descomentamos #net.ipv4.ip_forward y ponemos su valor a 1. Si ya esta a 1, muy bien, ya has terminado. Guarda (CTRL+S) y sal (CTRL+X).
+         └
+        ~$ sudo sysctl -p /etc/sysctl.conf
+         │  Comprobamos que su valor es 1.
+         └
+3. debian2: servidor web Apache/Nginx
+    3.1. Servidor web Apache:
+        ~$ sudo apt-get update && sudo apt-get upgrade
+        ~$ sudo apt install apache2
+
+4. debian5: Servidor ssh
+    4.1. Servidor ssh
+        ~$ sudo apt-get update && sudo apt-get upgrade
+        ~$ sudo apt install ssh
+        ~$ sudo nano /etc/ssh/sshd_config
+         │ Inhabilitar/Habilitar el acceso root remoto. Ignorar las comillas:
+         │ Buscas la linea con la directiva "PermitRootLogin". Por defecto, viene comentada.
+         │ "PermitRootLogin yes" habilitara el acceso root remoto.
+         │ "PermitRootLogin no" inhabilitara el acceso root remoto.
+         └        

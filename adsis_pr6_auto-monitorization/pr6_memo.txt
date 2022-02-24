@@ -1,0 +1,52 @@
+MEMORIA PRACTICA 6
+# PRIMERA PARTE
+(01). PREPARA RSYSLOG: NO necesario si ya esta instalado.
+1. Comprueba su existencia:
+    ~$ sudo apt-cache policy rsyslog
+        Si sale en pantalla "Installed: (none)", entonces deberas proceder a su instalacion.
+2. Instalacion:
+    ~$ sudo apt install rsyslog
+    ~$ sudo systemctl enable rsyslog
+    ~$ sudo systemctl start rsyslog
+
+(02). CONFIGURA RSYSLOG: /etc/rsyslog.conf
+~$ sudo nano /etc/rsyslog.conf
+    1. debian_as1
+        # provides UDP syslog reception
+        module(load="imudp")
+        input(type="imudp" port="514")
+
+        # provides TCP syslog reception
+        module(load="imtcp")
+        input(type="imtcp" port="514")
+
+        # regla para el registro remoto
+        local0.info /var/log/monitorizacion.log
+
+    2. debian_as2: al final del fichero.
+        *.* @@192.168.56.2:514
+
+(03). SCRIPT PRACTICA6_PARTE1.SH: adjunta en el tar.gz.
+(04). CONFIGURA TU CRONTAB: mismo proceso para debian_as1 y debian_as2.
+    ~$ crontab -e
+        */1 * * * * ~as/logger.sh &> /dev/null
+
+# SEGUNDA PARTE
+(01). PREPARA LOGCHECK: logcheck no viene instalado por defecto en debian.
+~$ sudo apt-get install logcheck
+~$ sudo -u logcheck
+
+(02). CONFIGURA LOGCHECK
+~$ sudo nano /etc/logcheck/logcheck.conf
+    Cambiar el valor de la directiva MAILASATTACH a 1.
+~$ sudo nano /etc/logcheck/logcheck.logfiles
+    Comentamos todos los ficheros por defecto y agregamos el fichero de monitorizacion.log
+        #/var/log/syslog
+        #/var/log/auth.log
+        /var/log/monitorizacion.log
+
+(03). REGLAS
+1. Carga del sistema que supera una carga de 1min de 50.00.
+2. Numero de puertos utilizados superior a 62500.
+3. Numero de conexiones establecidas superior a 250.
+4. Numero de procesos simultaneamente mayor de 100.

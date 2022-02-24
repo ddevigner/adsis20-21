@@ -1,0 +1,137 @@
+MEMORIA PRACTICA 4
+COMENTARIOS ############################################################################################################
+(01) La instalacion ha sido realizada desde la version de VirtualBox 6.1.22
+(02) Se han utilizado 3 maquinas virtuales denominadas "host", "debian_as1", "debian_as2".
+(03) Las 3 maquinas virtuales no han sido instaladas de manera completa si no que son clones de una vm base "as_base".
+(03) Las 3 maquinas virtuales utilizan Debian GNU/Linux 10 (buster) (la vm predeterimanda que se nos da).
+(04) La vm "host" es, valga la redundancia, el host del sistema que funcionará como cliente.
+(05) Las vm "debian_as1" y "debian_as2" son los servidores ssh del sistema.
+
+# PREPARACION DE LAS MAQUINAS VIRTUALES
+(01). HOST-ONLY NETWORK
+    │ 1. "File → Preferences → Network → Add" (antiguas versiones) ó "File → Host Network Manager"
+    │ 2. Caracteristicas de la HONET
+    │  │  "IPv4" = 192.168.56.1
+    │  │  "IPv4 Network Mask" = 255.255.255.0
+    │  │  "DHCP Server" = deshabilitado
+    │  └
+    └
+(02). LAS MAQUINAS VIRTUALES
+    │ 1. "File → Import Virtualized Service..." e Importa as_base.ova
+    │ 2. Crea las maquinas con el disco que acabas de importar, o simplemente clonalas, tuya es la decision.
+    └
+(03). ADAPTADORES DE RED
+    │ (03.1) NAT: la red que permitira a tu maravillosa vm conectarse al internet de tu carpetas
+    │   #. "Machine → Settings → Network → Adapter 1"
+    │    │ Enabled
+    │    │ Attached to: NAT
+    │    │ NO cambiar los MAC ADDRESS
+    │    └ 
+    │ (03.2) Host-only: la puerta que permitira crear la red local de tus sueños entre tus maquinas.
+    │   #. "Machine → Settings → Network → Adapter 2"
+    │    │ Enabled
+    │    │ Attached to: Host-only adapter
+    │    │ Name: selecciona la HONET que hayas configurado antes, y si no lo has hecho, a que esperas?
+    │    └
+    └  
+
+# HORA DE CONFIGURAR TUS SISTEMAS OPERATIVOS VIRTUALES
+(01). SUDO && NOPASSWD
+    │ 1. Instala sudo si no esta instalado en el sistema. Si has importado as_base.ova, deberia tenerlo.
+    │  │ ~$ su -                                        # Inicias sesion como root.
+    │  │ ~$ apt-get install sudo                        # Instalas sudo.
+    │  │ ~$ usermod -aG sudo <user>                     # Añades el usuario al grupo sudo. Claramente, en vez de <user>, pones el usuario de interes.
+    │  │ ~$ reboot                                      # Reinicia la maquina para aplicar los cambios.
+    │  └
+    │ 2. Configura /etc/sudoers
+    │  │ ~$ sudo visudo                                 # La manera mas segura de editar el fichero sin joder el sistema. A continuacion, los pasos a seguir.
+    │  │  │ Añade en la ultima linea: <user> ALL=(ALL) NOPASSWD: ALL
+    │  │  │ Reitero, <user> no es <user>, es tu usuario de interes para que use sudo sin contraseña en la maquina.
+    │  │  │ CTRL+S para guardar.
+    │  │  │ CTRL+X para salir.
+    │  │  └
+    │  └    
+    └
+(02). CONFIGURACION DE RED
+    │ 1. Inicia sesion como root. Totalmente innecesario, pero si quieres evitarte poner sudo cada 2 comandos, sera mucho mas rapido, igualmente,
+    │  │ los comandos en la guia se pondran con sudo, si inicias sesion como root, podras ahorrarte el ponerlo.
+    │  │ ~$ su -
+    │  └
+    │ 2. EL FICHERO /etc/network/interfaces
+    │  │ ~$ sudo nano /etc/network/interfaces           # Ahora editaras el fichero para agregar las nuevas interfaces.
+    │  │  │ Nano, vi, cualquier editor de texto vale. Escoge tu favorito y dale.
+    │  │  │ Al final del archivo agregamos la nueva interfaz para cada maquina virtual.
+    │  │  │  │  * EN LA MAQUINA VIRTUAL debian_as1 *       │  * EN LA MAQUINA VIRTUAL debian_as2 *
+    │  │  │  │  auto enp0s8                                │  auto enp0s8
+    │  │  │  │  iface enp0s8 inet static                   │  iface enp0s8 inet static
+    │  │  │  │      address 192.168.56.2                   │      address 192.168.56.3
+    │  │  │  │      netmask 255.255.255.0                  │      netmask 255.255.255.0
+    │  │  │  └                                             └
+    │  │  │ ¿Porque hacer esto? ¿Te acuerdas de que habias creado un segundo adaptador de red en VirtualBox tipo HONET? Ahora te
+    │  │  │ toca instalarlo de manera que tu sistema operativo de la vm pueda dar juego con el. Desde el principio tu vm reconoce
+    │  │  │ el adaptador (enp0s8), pero no esta declarado de manera que pueda usarse, por lo que tienes que crear una interfaz que 
+    │  │  │ el sistema operativo pueda utilizar, sencillo, ¿no?
+    │  │  └
+    │  │ ~$ sudo ifdown enp0s8 && sudo ifup enp0s8      # Desactivar y activar la interfaz para poder aplicar los cambios.
+    │  │ ~$ ip a                                        # No esta de mas comprobar que todo ha ido bien. Si salen tus interfaces, todo ha ido bien.
+    │  └
+    └
+(03). INSTALACION Y CONFIGURACION DEL SSH 
+    │ 1. Comprueba que tu maquina no esta llena de carencias y falta de afectos. Innecesario, pero puede evitar posteriores errores de configuracion:
+    │  │ ~$ sudo apt update                             # Actualiza tu lista de versiones de paquetes con las posibles ultimas versiones.
+    │  │ ~$ sudo apt upgrade                            # Actualiza tus paquetes. Y no he tenido que mirarlo en internet.
+    │  └
+    │ 
+    │ 2. El cliente SSH. Solo para SO que extrañamente no tienen un sistema de cliente. Genuinamente necesario para tu VM que actuará de cliente.
+    │  │ ~$ sudo apt-get install openssh-client         # Instalacion del cliente.
+    │  │     
+    │  │ # El cliente ya esta instalado, ya no tienes que hacer nada mas, estos comandos son para refrescarte la memoria
+    │  │ ~$ ssh <IP> [-p <PORT>]                        # Conexion a ip <IP>. El nombre de usuario es el tuyo actual, con -p especificas el puerto a utilizar.
+    │  │ ~$ ssh <user>@<{hostname | IP}> [command]      # Conexion al usuario <user> de la maquina <IP>. Puedes mandar un comando a realizar al conectarte.
+    │  └
+    │ 3. El servidor SSH. Genuinamente necesario si quieres que tus VM actuen como servidores.
+    │  │ ~$ sudo apt-get install ssh                    # Instalacion
+    │  │ ~$ sudo nano /etc/ssh/sshd_config              # Configuracion para tus servidores. 
+    │  │  │ Nano, vi, cualquier editor de texto vale. Ya sabes, escoge tu favorito y adelante
+    │  │  │ Inhabilitar/Habilitar el acceso root remoto. Ignorar las comillas:
+    │  │  │  │ Buscas la linea con la directiva "PermitRootLogin". Por defecto, viene comentada.
+    │  │  │  │ "PermitRootLogin yes" habilitara el acceso root remoto.
+    │  │  │  │ "PermitRootLogin no" inhabilitara el acceso root remoto.
+    │  │  │  └
+    │  │  │ Limitar el acceso a usuarios autorizados. DATO IMPORTANTE: antes de configurar esta directiva, deberias mandarte la clave publica
+    │  │  │ de las maquinas que quieres que tengan permitido conectarse, si no, no podras mandar nada y no estaran guardadas tus claves publicas 
+    │  │  │ en el servidor:
+    │  │  │  │ Buscas la linea con la directiva "PasswordAuthentication"
+    │  │  │  │  "PasswordAuthentication yes" permitira que cualquier maquina acceda a un usuario
+    │  │  │  │  del servidor con la contraseña correspondiente.
+    │  │  │  │  "PasswordAuthentication no" solo permitira acceder aquellas maquinas cuya clave 
+    │  │  │  │  se encuentren en el registro del servidor SSH.
+    │  │  │  └ 
+    │  │  └  
+    │  │ ~$ systemctl status ssh                        # Comprueba el estado de tu servidor:
+    │  │ ~$ sudo systemctl reload ssh                   # Reinicia el servidor ssh para aplicar los cambios.
+    │  └
+    └
+
+# PREPARACION DE LA INFRAESTRUCTURA DE AUTENTIFICACION 
+(01). CLAVES
+    │ ~$ ssh-keygen -b 4096 -t ed25519                  # Crea una nueva clave, privada y publica, de 4096b del tipo ed25519.
+    │  │ <ENTER>                                        # Te preguntará donde quieres guardarlo. Innecesario tambien, por defecto es $HOME/.ssh
+    │  │ <ENTER> x2                                     # Te preguntará si quieres encriptar tu clave. No lo necesitas.
+    │  └
+    └
+(02). AGREGAR LAS CLAVES PUBLICAS:
+    │ 1. Preparacion en los servidores (debian_as1 y debian_as2):
+    │  │ ~$ cd .ssh                                     # Te mueves a la carpeta de .ssh con archivos de configuracion, de logs, claves, etc.
+    │  │ ~$ touch authorized_keys                       # Crearas el archivo que contenga las claves publicas que permitaran acceder a esas maquinas.
+    │  └
+    │ 2. Preparacion del cliente:
+    │  │ ~$ cd .ssh                                     # Te mueves de nuevo a la carpeta .ssh, pero en el cliente.
+    │  │ ~$ scp id_ed25519.pub as@192.168.56.2:~/        # Mandaras la clave PUBLICA, al home del primer servidor. NO MANDES LA PRIVADA.
+    │  │ ~$ scp id_ed25519.pub as@192.168.56.3:~/        # Mandar la clave PUBLICA, pero ahora, al home del segundo servidor. QUIETO CON LA CLAVE PRIVADA.
+    │  └
+    │ 3. Autorizar la clave publica (debian_as1 y debian_as2). Esto debes realizarlo en cada servidor por separado.
+    │  │ ~$ cd ~/                                       # Te mueves a tu directorio raiz de los servidores.
+    │  │ ~$ cat id_ed25519.pub >> .ssh/authorized_keys  # Copias la clave publica al archivo de claves que has creado anteriormente.
+    │  └
+    └

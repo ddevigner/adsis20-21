@@ -1,0 +1,86 @@
+MEMORIA PRACTICA 5
+# PRIMERA PARTE
+(01). PREPACIONES PREVIAS:
+1. Instalar el paquete para trabajar con volumenes logicos y comprobar la correcta instalacion:
+  ~$ sudo apt-get install lvm2
+  ~$ systemctl list-units
+ 
+2. Instalar gdisk y parted
+  ~$ sudo apt-get install gdisk
+  ~$ sudo apt-get install parted
+
+(02). PREPARA TU NUEVO DISCO DE MANERA "SENCILLA"
+1. [VirtualBox] Con la VM obviamente apagada. "Configuracion → Almacenamiento → Controlador SATA: Añadir Disco → Crear → 32MiB~ → Aceptar"
+2. Configuracion del disco
+  ~$ sudo fdisk -l               # Comprueba si el disco es reconocido. Si aparece, enhorabuena (por defecto se llama /dev/sd., siendo . una letra).
+  ~$ sudo gdisk <tu_disco>       # Una vez sepas cual es el nombre de tu nuevo disco, ejecutalo con gdisk. Es un entorno interactivo.
+   │  o                          # Crearas la tabla de particion GUID (gpt).
+   │  n (para la 1particion)         n (para la segunda particion)
+   │  │ <ENTER>                      │ <ENTER>
+   │  │ <ENTER>                      │ <ENTER>
+   │  │ +16MB                        │ <ENTER>
+   │  │ <ENTER>                      │ <ENTER>
+   │  └                              └
+   │  w                          # Salir del entorno gdisk y escribir sobre el disco los cambios.
+   └ 
+
+3. Comprobar si estan alineados de la manera optima. Opcional:
+  ~$ sudo parted <disco> align-check optimal <n>   # <disco> sera tu disco de 32MB anteriormente creado, <n> la particion a consultar.
+
+4. Se crean los sistemas de ficheros:
+  ~$ mkfs -t ext3 <particion1>   # Tu primera particion sera del tipo ext3. No hace falta recordar que no es <particion1> literal.
+  ~$ mkfs -t ext4 <particion2>   # Tu segunda particion sera del tipo ext4. Al igual que antes, no es <particion2> literal.
+
+5. Se indica su montaje automatico en el fichero /etc/fstab
+  ~$ sudo cp /etc/fstab /etc/fstab.bkp  # Copia de seguridad, por si las cosas salen mal.
+  ~$ sudo nano /etc/fstab
+   │ Nano, vi, se feliz con el editor de texto que quieras.
+   │ Al final del fichero se colocaran las siguientes lineas:
+   │  │ /dev/sdb1    /media/ds1  ext3   defaults 0 0
+   │  │ /dev/sdb2    /media/ds2   ext4   defaults 0 0
+   │  └
+   │ Cada campo significa: <file system> <mount point> <type> <options> <dump> <pass> 
+   │ En mi caso, mis particiones son /dev/sdb1 y /dev/sdb2 y sus carpetas de montaje son /media/ds1 y /media/ds2, creadas anteriormente.
+   └
+
+
+# SEGUNDA PARTE:
+(01). Ejecucion del script PRACTICA5_PARTE2.SH
+  ~$ ./practica5_parte2 <IP>
+   │  <ip> direccion ip de la maquina que queremos comprobar sus discos. Parametro obligatorio.
+   └
+
+# PARTE 3
+(01). Preparaciones
+ 1. [VirtualBox] Elige la VM que mas rabia te de, preferiblemente en la que hayas instalado lvm. Y ahora, crea un nuevo 
+    disco, otra vez de 32MB. El procedimiento es el mismo que antes.
+ 2. Prepara el disco con una particion que ocupe todo tu nuevo disco, no tiene porque estar alineado:
+  ~$ sudo gdisk /dev/sdc                 # De nuevo, el entorno interactivo de gdisk. En mi caso, el disco se llama /dev/sdc.
+   │  o                                  # Crearas la tabla de particion GUID (gpt).
+   │  n 
+   │  │ <ENTER>
+   │  │ <ENTER>
+   │  │ <ENTER>
+   │  │ <ENTER>    
+   │  └
+   │  w                                  # Salir del entorno gdisk y escribir sobre el disco los cambios.
+   └ 
+  ~$ sudo parted /dev/sdc set 1 lvm on   # Haras que tu particion sea del tipo lvm.
+
+ 3. Se mira la lista de VG que hay y se crea un VG "vg_p5" con nuestra particion.
+  ~$ sudo vgdisplay                      # Comprobamos que no hay un VG llamado vg_p5. Aunque tampoco es necesario, en verdad.
+  ~$ sudo vgcreate vg_p5 /dev/sdc1       # Creamos el VG vg_p5 para la particion, en mi caso, /dev/sdc1.
+
+ 
+
+(02). Ejecucion del script practica5_parte3_vg.sh
+  ~$ sudo ./practica5_parte3_vg.sh <vg_p5> <d0> ... <dn>
+   │ <vg_p5> es el grupo volumen objetivo. Parametro obligatorio.
+   │ <d0> ... <dn> son las n particiones que se usen para la extension. Minimo 1 obligatoriamente.
+   └
+
+(03).Ejecucion del script practica5_parte3_lv.sh
+  ~$ sudo ./practica5_parte3_lv.sh [ < <vg_file> ]
+   │  │ <vg_file> archivo de entrada para el script. No es necesario, pero es recomendado.
+   │  └
+   └
